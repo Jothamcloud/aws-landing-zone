@@ -99,12 +99,16 @@ def create_ou(
     parent_id: str = typer.Option(..., help="Parent OU or root ID")
 ):
     """Create an organizational unit"""
-    org_helper = OrganizationHelper("us-east-1")
-    result = org_helper.create_organizational_unit(name, parent_id)
-    console.print(f"\n[green]Successfully created OU:[/green]")
-    console.print(f"  Name: {result['Name']}")
-    console.print(f"  ID: {result['Id']}")
-    console.print(f"  ARN: {result['Arn']}\n")
+    try:
+        org_helper = OrganizationHelper("us-east-1")
+        result = org_helper.create_organizational_unit(name, parent_id)
+        console.print(f"\n[green]Successfully created OU:[/green]")
+        console.print(f"  Name: {result['Name']}")
+        console.print(f"  ID: {result['Id']}")
+        console.print(f"  ARN: {result['Arn']}\n")
+    except Exception as e:
+        console.print(f"\n[red]Error:[/red] {str(e)}\n")
+        raise typer.Exit(1)
 
 @app.command()
 def create_account(
