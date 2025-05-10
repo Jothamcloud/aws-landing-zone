@@ -1,16 +1,20 @@
 organizational_units:
-  Audit:
+  Security:
     parent_id: "r-xxxx"  # Replace with your org root ID
     accounts:
-      - name: "Audit"
-        email: "your-audit-email@domain.com"
-      - name: "Log Archive"
-        email: "your-logarchive-email@domain.com"
+      - name: security-tools
+        email: security@yourdomain.com
+  
+  Infrastructure:
+    parent_id: "r-xxxx"  # Replace with your org root ID
+    accounts:
+      - name: shared-services
+        email: shared@yourdomain.com
+      - name: network
+        email: network@yourdomain.com
 
-  Workload:
+  Logging:
     parent_id: "r-xxxx"  # Replace with your org root ID
     accounts:
-      - name: "Prod-Workload"
-        email: "your-prod-email@domain.com"
-      - name: "conneft"
-        email: "your-conneft-email@domain.com"
+      - name: log-archive
+        email: logs@yourdomain.com
