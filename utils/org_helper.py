@@ -32,7 +32,8 @@ class OrganizationHelper:
             )
             return response['OrganizationalUnit']
         except ClientError as e:
-            raise e
+            logger.error(f"Failed to create OU: {e.response['Error']['Message']}")
+            raise Exception(e.response['Error']['Message'])
 
     def create_account(self, name: str, email: str, ou_id: Optional[str] = None) -> dict:
         """
