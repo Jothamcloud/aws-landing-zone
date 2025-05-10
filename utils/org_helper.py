@@ -72,7 +72,15 @@ class OrganizationHelper:
                     
                 return status
             else:
-                raise Exception(f"Account creation failed: {status['FailureReason']}")
+                error_messages = {
+                    'EMAIL_ALREADY_EXISTS': 'Email address is already in use',
+                    'ACCOUNT_LIMIT_EXCEEDED': 'Account limit has been exceeded',
+                    'INVALID_EMAIL': 'Invalid email address provided',
+                    'INVALID_ADDRESS': 'Invalid address provided',
+                    'CONCURRENT_ACCOUNT_MODIFICATION': 'Another account operation in progress'
+                }
+                error_msg = error_messages.get(status['FailureReason'], status['FailureReason'])
+                raise Exception(error_msg)
                 
         except ClientError as e:
             logger.error(f"Failed to create account: {str(e)}")

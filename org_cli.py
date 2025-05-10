@@ -113,9 +113,15 @@ def create_account(
     ou: Optional[str] = typer.Option(None, help="OU ID to place account in")
 ):
     """Create an AWS account"""
-    org_helper = OrganizationHelper("us-east-1")
-    result = org_helper.create_account(name, email, ou)
-    typer.echo(f"Created account: {result}")
+    try:
+        org_helper = OrganizationHelper("us-east-1")
+        result = org_helper.create_account(name, email, ou)
+        console.print(f"\n[green]Successfully created account:[/green]")
+        console.print(f"  Name: {result['AccountName']}")
+        console.print(f"  ID: {result['AccountId']}\n")
+    except Exception as e:
+        console.print(f"\n[red]Error:[/red] {str(e)}\n")
+        raise typer.Exit(1)
 
 @app.command()
 def deploy_stack(
