@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Shared Services Setup for Landing Zone'
+
+Resources:
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AWS::AccountId}-artifacts
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: landing-zone-ecr
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: IMMUTABLE
+      EncryptionConfiguration:
+        EncryptionType: AES256
+
+  SecretsKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for shared secrets
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: '*'
+
+  SecretsKMSAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/landing-zone-secrets
+      TargetKeyId: !Ref SecretsKMSKey
+
+Outputs:
+  ArtifactsBucketName:
+    Description: Name of the shared artifacts bucket
+    Value: !Ref ArtifactsBucket
+
+  ECRRepositoryUri:
+    Description: URI of the ECR repository
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepository}
+
+  SecretsKMSKeyArn:
+    Description: ARN of the KMS key for secrets
+    Value: !GetAtt SecretsKMSKey.Arn

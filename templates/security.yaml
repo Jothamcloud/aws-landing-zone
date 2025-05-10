@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Security Tools Setup for Landing Zone'
+
+Resources:
+  GuardDutyDetector:
+    Type: AWS::GuardDuty::Detector
+    Properties:
+      Enable: true
+      DataSources:
+        S3Logs:
+          Enable: true
+        Kubernetes:
+          AuditLogs:
+            Enable: true
+
+  SecurityHub:
+    Type: AWS::SecurityHub::Hub
+    Properties: {}
+
+  ConfigRecorder:
+    Type: AWS::Config::ConfigurationRecorder
+    Properties:
+      Name: landing-zone-config
+      RecordingGroup:
+        AllSupported: true
+        IncludeGlobalResources: true
+      RoleARN: !GetAtt ConfigRole.Arn
+
+  ConfigRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: config.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWS_ConfigRole
+
+Outputs:
+  GuardDutyDetectorId:
+    Description: GuardDuty Detector ID
+    Value: !Ref GuardDutyDetector
+
+  SecurityHubArn:
+    Description: SecurityHub ARN
+    Value: !Ref SecurityHub
