@@ -3,8 +3,8 @@ from rich.logging import RichHandler
 from rich.console import Console
 from rich.traceback import install
 
-# Disable rich traceback
-install(show_locals=False, suppress=[])
+# Disable rich traceback completely
+install(show_locals=False, suppress=[], show_locals=False)
 
 # Create console for rich output
 console = Console()

@@ -132,7 +132,12 @@ class OrganizationHelper:
             response = self.org_client.list_accounts()
             return response['Accounts']
         except ClientError as e:
-            raise e
+            if e.response['Error']['Code'] == 'AWSOrganizationsNotInUseException':
+                raise Exception("AWS Organizations is not enabled for this account")
+            elif e.response['Error']['Code'] == 'AccessDeniedException':
+                raise Exception("Insufficient permissions to list accounts")
+            else:
+                raise Exception(f"AWS Error: {e.response['Error']['Message']}")
 
     def _get_root_id(self) -> str:
         """Get the organization root ID"""

@@ -157,23 +157,31 @@ def attach_scp(
 @app.command()
 def list_accounts():
     """List all accounts in the organization"""
-    org_helper = OrganizationHelper("us-east-1")
-    accounts = org_helper.list_accounts()
-    
-    # Print header
-    console.print("\n[bold]AWS Organization Accounts[/bold]\n")
-    
-    # Print accounts in a table format
-    from rich.table import Table
-    table = Table(show_header=True)
-    table.add_column("Account Name", style="cyan")
-    table.add_column("Account ID", style="green")
-    
-    for account in accounts:
-        table.add_row(account['Name'], account['Id'])
-    
-    console.print(table)
-    console.print()
+    try:
+        org_helper = OrganizationHelper("us-east-1")
+        accounts = org_helper.list_accounts()
+        
+        # Print header
+        console.print("\n[bold]AWS Organization Accounts[/bold]\n")
+        
+        # Print accounts in a table format
+        from rich.table import Table
+        table = Table(show_header=True)
+        table.add_column("Account Name", style="cyan")
+        table.add_column("Account ID", style="green")
+        
+        for account in accounts:
+            table.add_row(account['Name'], account['Id'])
+        
+        console.print(table)
+        console.print()
+    except Exception as e:
+        if "Unable to locate credentials" in str(e):
+            console.print("\n[red]Error:[/red] AWS credentials not found. Please configure your AWS credentials.")
+            console.print("Run: [bold]aws configure[/bold]\n")
+        else:
+            console.print(f"\n[red]Error:[/red] {str(e)}\n")
+        raise typer.Exit(1)
 
 @app.command()
 def delete_stack(
