@@ -91,3 +91,14 @@ class CloudFormationHelper:
         """Get detailed stack status"""
         response = self.cfn.describe_stacks(StackName=stack_id)
         return response['Stacks'][0]
+
+    def delete_stack(self, stack_name: str) -> dict:
+        """Delete a CloudFormation stack"""
+        try:
+            logger.info(f"Deleting stack: {stack_name}")
+            response = self.cfn.delete_stack(StackName=stack_name)
+            self._wait_for_stack_operation(stack_name, 'DELETE')
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to delete stack: {str(e)}")
+            raise

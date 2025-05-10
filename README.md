@@ -48,6 +48,26 @@ python org_cli.py attach-scp --policy-id "p-xxxx" --target-id "ou-xxxx"
 python org_cli.py list-accounts
 ```
 
+### Delete Stack
+```bash
+python org_cli.py delete-stack --account-id "123456789012" --stack-name "landing-zone-vpc-base"
+```
+
+### Delete Account
+```bash
+python org_cli.py delete-account --account-id "123456789012"
+```
+
+### Delete OU
+```bash
+python org_cli.py delete-ou --ou-id "ou-xxxx"
+```
+
+### Cleanup Everything
+```bash
+python org_cli.py cleanup --env prod
+```
+
 ## Configuration
 
 Edit `configs/accounts.yaml` to define your organizational structure and account details.

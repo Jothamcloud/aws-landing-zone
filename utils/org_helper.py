@@ -133,3 +133,62 @@ class OrganizationHelper:
             return response['Roots'][0]['Id']
         except ClientError as e:
             raise e
+
+    def delete_account(self, account_id: str) -> dict:
+        """Delete an AWS account"""
+        try:
+            # First move account to root
+            root_id = self._get_root_id()
+            current_parent = self.org_client.list_parents(ChildId=account_id)['Parents'][0]['Id']
+            
+            if current_parent != root_id:
+                self.org_client.move_account(
+                    AccountId=account_id,
+                    SourceParentId=current_parent,
+                    DestinationParentId=root_id
+                )
+            
+            # Then close account
+            response = self.org_client.close_account(AccountId=account_id)
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to delete account: {str(e)}")
+            raise
+
+    def delete_organizational_unit(self, ou_id: str) -> dict:
+        """Delete an organizational unit"""
+        try:
+            response = self.org_client.delete_organizational_unit(
+                OrganizationalUnitId=ou_id
+            )
+            return response
+        except ClientError as e:
+            logger.error(f"Failed to delete OU: {str(e)}")
+            raise
+
+    def get_account_id_by_name(self, account_name: str) -> Optional[str]:
+        """Get account ID by name"""
+        try:
+            accounts = self.list_accounts()
+            for account in accounts:
+                if account['Name'] == account_name:
+                    return account['Id']
+            return None
+        except ClientError as e:
+            logger.error(f"Failed to get account ID: {str(e)}")
+            raise
+
+    def get_ou_id_by_name(self, ou_name: str) -> Optional[str]:
+        """Get OU ID by name"""
+        try:
+            root_id = self._get_root_id()
+            response = self.org_client.list_organizational_units_for_parent(
+                ParentId=root_id
+            )
+            for ou in response['OrganizationalUnits']:
+                if ou['Name'] == ou_name:
+                    return ou['Id']
+            return None
+        except ClientError as e:
+            logger.error(f"Failed to get OU ID: {str(e)}")
+            raise

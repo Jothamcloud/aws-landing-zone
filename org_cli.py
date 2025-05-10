@@ -153,5 +153,116 @@ def list_accounts():
     for account in accounts:
         typer.echo(f"Account: {account['Name']} ({account['Id']})")
 
+@app.command()
+def delete_stack(
+    account_id: str = typer.Option(..., help="AWS account ID"),
+    stack_name: str = typer.Option(..., help="Stack name to delete"),
+    region: str = typer.Option("us-east-1", help="AWS region")
+):
+    """Delete a CloudFormation stack from an account"""
+    try:
+        role_arn = f"arn:aws:iam::{account_id}:role/OrganizationAccountAccessRole"
+        cfn = CloudFormationHelper(region, role_arn)
+        result = cfn.delete_stack(stack_name)
+        typer.echo(f"Stack deletion initiated: {result}")
+    except Exception as e:
+        logger.error(f"Failed to delete stack: {str(e)}")
+        raise typer.Exit(1)
+
+@app.command()
+def delete_account(
+    account_id: str = typer.Option(..., help="AWS account ID"),
+    region: str = typer.Option("us-east-1", help="AWS region")
+):
+    """Remove account from OU and close it"""
+    try:
+        org_helper = OrganizationHelper(region)
+        result = org_helper.delete_account(account_id)
+        typer.echo(f"Account deletion initiated: {result}")
+    except Exception as e:
+        logger.error(f"Failed to delete account: {str(e)}")
+        raise typer.Exit(1)
+
+@app.command()
+def delete_ou(
+    ou_id: str = typer.Option(..., help="OU ID to delete"),
+    region: str = typer.Option("us-east-1", help="AWS region")
+):
+    """Delete an organizational unit (must be empty)"""
+    try:
+        org_helper = OrganizationHelper(region)
+        result = org_helper.delete_organizational_unit(ou_id)
+        typer.echo(f"OU deleted: {result}")
+    except Exception as e:
+        logger.error(f"Failed to delete OU: {str(e)}")
+        raise typer.Exit(1)
+
+@app.command()
+def cleanup(
+    env: str = typer.Option(..., help="Environment name (dev/prod)"),
+    region: str = typer.Option("us-east-1", help="AWS region")
+):
+    """Cleanup all resources in reverse order"""
+    try:
+        # Load configuration
+        with open("configs/accounts.yaml", "r") as f:
+            config = yaml.safe_load(f)
+
+        org_helper = OrganizationHelper(region)
+        
+        # Reverse deployment order
+        deployment_order = ["Infrastructure", "Security", "Logging"]
+        
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            for ou_type in deployment_order:
+                if ou_type not in config["organizational_units"]:
+                    continue
+                    
+                task_id = progress.add_task(f"Cleaning up {ou_type}...", total=None)
+                try:
+                    ou_config = config["organizational_units"][ou_type]
+                    
+                    # Delete accounts in OU
+                    for account in ou_config.get("accounts", []):
+                        logger.info(f"Cleaning up account: {account['name']}")
+                        # First delete stacks
+                        template_map = {
+                            "Logging": ["logging.yaml"],
+                            "Security": ["security.yaml"],
+                            "Infrastructure": ["vpc-base.yaml", "shared-services.yaml"]
+                        }
+                        
+                        # Get account ID
+                        account_id = org_helper.get_account_id_by_name(account["name"])
+                        if account_id:
+                            cfn = CloudFormationHelper(region, f"arn:aws:iam::{account_id}:role/OrganizationAccountAccessRole")
+                            for template in template_map.get(ou_type, []):
+                                stack_name = f"landing-zone-{template.replace('.yaml', '')}"
+                                cfn.delete_stack(stack_name)
+                            
+                            # Then delete account
+                            org_helper.delete_account(account_id)
+                    
+                    # Delete OU
+                    ou_id = org_helper.get_ou_id_by_name(ou_type)
+                    if ou_id:
+                        org_helper.delete_organizational_unit(ou_id)
+                        
+                    progress.update(task_id, completed=True)
+                except Exception as e:
+                    logger.error(f"Failed to clean up {ou_type}: {str(e)}")
+                    progress.update(task_id, completed=True, description=f"Failed to clean up {ou_type}")
+                    raise
+                
+        logger.info("Cleanup completed successfully!")
+        
+    except Exception as e:
+        logger.error(f"Cleanup failed: {str(e)}")
+        raise typer.Exit(1)
+
 if __name__ == "__main__":
     app()
