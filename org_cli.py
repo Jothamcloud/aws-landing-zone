@@ -80,8 +80,12 @@ def launch(
                                     stack_name=f"landing-zone-{template.replace('.yaml', '')}",
                                     template_body=template_body
                                 )
-                                
-                progress.update(task_id, completed=True)
+                    
+                    progress.update(task_id, completed=True)
+                except Exception as e:
+                    logger.error(f"Failed to set up {ou_type}: {str(e)}")
+                    progress.update(task_id, completed=True, description=f"Failed to set up {ou_type}")
+                    raise
                 
             logger.info("Landing zone deployment completed successfully!")
             
