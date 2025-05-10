@@ -4,8 +4,11 @@ from pathlib import Path
 from typing import Optional
 from utils.cloudformation import CloudFormationHelper
 from utils.org_helper import OrganizationHelper
+from utils.logger import setup_logging, console
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 app = typer.Typer()
+logger = setup_logging()
 
 @app.command()
 def launch(
@@ -13,22 +16,78 @@ def launch(
     region: str = typer.Option("us-east-1", help="AWS region")
 ):
     """Launch complete landing zone setup"""
-    # Load configuration
-    with open("configs/accounts.yaml", "r") as f:
-        config = yaml.safe_load(f)
-    
-    org_helper = OrganizationHelper(region)
-    
-    # Create OUs and accounts
-    for ou_name, ou_config in config["organizational_units"].items():
-        ou = org_helper.create_organizational_unit(ou_name, ou_config["parent_id"])
+    try:
+        # Load and validate configuration
+        logger.info("Loading configuration...")
+        with open("configs/accounts.yaml", "r") as f:
+            config = yaml.safe_load(f)
+
+        if not config.get("organizational_units"):
+            raise ValueError("No organizational units defined in config")
+
+        org_helper = OrganizationHelper(region)
+        cfn_helper = CloudFormationHelper(region)
         
-        for account in ou_config.get("accounts", []):
-            org_helper.create_account(
-                name=account["name"],
-                email=account["email"],
-                ou_id=ou["Id"]
-            )
+        # Deployment order: Logging -> Security -> Infrastructure
+        deployment_order = ["Logging", "Security", "Infrastructure"]
+        
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            # Create OUs and accounts in order
+            for ou_type in deployment_order:
+                if ou_type not in config["organizational_units"]:
+                    continue
+                    
+                ou_config = config["organizational_units"][ou_type]
+                task_id = progress.add_task(f"Setting up {ou_type}...", total=None)
+                
+                try:
+                    # Create OU
+                    ou = org_helper.create_organizational_unit(ou_type, ou_config["parent_id"])
+                    logger.info(f"Created OU: {ou_type}")
+                    
+                    # Create accounts
+                    for account in ou_config.get("accounts", []):
+                        status = org_helper.create_account(
+                            name=account["name"],
+                            email=account["email"],
+                            ou_id=ou["Id"]
+                        )
+                        
+                        # Deploy appropriate template based on account type
+                        if status['State'] == 'SUCCEEDED':
+                            account_id = status['AccountId']
+                            template_map = {
+                                "Logging": "logging.yaml",
+                                "Security": "security.yaml",
+                                "Infrastructure": ["vpc-base.yaml", "shared-services.yaml"]
+                            }
+                            
+                            templates = template_map.get(ou_type, [])
+                            if isinstance(templates, str):
+                                templates = [templates]
+                                
+                            for template in templates:
+                                logger.info(f"Deploying {template} to account {account_id}")
+                                template_path = Path("templates") / template
+                                with open(template_path, "r") as f:
+                                    template_body = f.read()
+                                    
+                                cfn_helper.deploy_stack(
+                                    stack_name=f"landing-zone-{template.replace('.yaml', '')}",
+                                    template_body=template_body
+                                )
+                                
+                progress.update(task_id, completed=True)
+                
+            logger.info("Landing zone deployment completed successfully!")
+            
+    except Exception as e:
+        logger.error(f"Landing zone deployment failed: {str(e)}")
+        raise typer.Exit(1)
 
 @app.command()
 def create_ou(

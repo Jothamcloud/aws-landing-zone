@@ -1,6 +1,10 @@
 import boto3
-from botocore.exceptions import ClientError
+import time
+from botocore.exceptions import ClientError, WaiterError
 from typing import Optional, Dict, List
+from .logger import setup_logging
+
+logger = setup_logging()
 
 class OrganizationHelper:
     """Helper class to manage AWS Organizations operations"""
@@ -32,7 +36,7 @@ class OrganizationHelper:
 
     def create_account(self, name: str, email: str, ou_id: Optional[str] = None) -> dict:
         """
-        Create a new AWS account
+        Create a new AWS account and wait for completion
         
         Args:
             name: Account name
@@ -43,22 +47,51 @@ class OrganizationHelper:
             dict: Created account details
         """
         try:
+            logger.info(f"Creating account: {name}")
             response = self.org_client.create_account(
                 AccountName=name,
                 Email=email
             )
             
-            if ou_id:
-                account_id = response['CreateAccountStatus']['AccountId']
-                self.org_client.move_account(
-                    AccountId=account_id,
-                    SourceParentId=self._get_root_id(),
-                    DestinationParentId=ou_id
-                )
+            request_id = response['CreateAccountStatus']['Id']
+            
+            # Wait for account creation to complete
+            status = self._wait_for_account_creation(request_id)
+            
+            if status['State'] == 'SUCCEEDED':
+                account_id = status['AccountId']
+                logger.info(f"Account created successfully: {account_id}")
                 
-            return response['CreateAccountStatus']
+                if ou_id:
+                    logger.info(f"Moving account to OU: {ou_id}")
+                    self.org_client.move_account(
+                        AccountId=account_id,
+                        SourceParentId=self._get_root_id(),
+                        DestinationParentId=ou_id
+                    )
+                    
+                return status
+            else:
+                raise Exception(f"Account creation failed: {status['FailureReason']}")
+                
         except ClientError as e:
-            raise e
+            logger.error(f"Failed to create account: {str(e)}")
+            raise
+            
+    def _wait_for_account_creation(self, request_id: str, max_retries: int = 20) -> dict:
+        """Wait for account creation to complete"""
+        for _ in range(max_retries):
+            status = self.org_client.describe_create_account_status(
+                CreateAccountRequestId=request_id
+            )['CreateAccountStatus']
+            
+            if status['State'] in ['SUCCEEDED', 'FAILED']:
+                return status
+                
+            logger.info(f"Waiting for account creation... Current state: {status['State']}")
+            time.sleep(30)
+            
+        raise TimeoutError("Account creation timed out")
 
     def attach_policy(self, policy_id: str, target_id: str) -> dict:
         """
