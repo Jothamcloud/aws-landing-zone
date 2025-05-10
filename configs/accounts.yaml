@@ -1,0 +1,20 @@
+organizational_units:
+  Security:
+    parent_id: r-xxxx  # Replace with your org root ID
+    accounts:
+      - name: security-tools
+        email: security@yourdomain.com
+  
+  Infrastructure:
+    parent_id: r-xxxx  # Replace with your org root ID
+    accounts:
+      - name: shared-services
+        email: shared@yourdomain.com
+      - name: network
+        email: network@yourdomain.com
+
+  Logging:
+    parent_id: r-xxxx  # Replace with your org root ID
+    accounts:
+      - name: log-archive
+        email: logs@yourdomain.com
