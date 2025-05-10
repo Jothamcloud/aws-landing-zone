@@ -4,7 +4,7 @@ from rich.console import Console
 from rich.traceback import install
 
 # Disable rich traceback completely
-install(show_locals=False, suppress=[], show_locals=False)
+install(show_locals=False, suppress=[])
 
 # Create console for rich output
 console = Console()
