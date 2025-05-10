@@ -101,7 +101,10 @@ def create_ou(
     """Create an organizational unit"""
     org_helper = OrganizationHelper("us-east-1")
     result = org_helper.create_organizational_unit(name, parent_id)
-    typer.echo(f"Created OU: {result}")
+    console.print(f"\n[green]Successfully created OU:[/green]")
+    console.print(f"  Name: {result['Name']}")
+    console.print(f"  ID: {result['Id']}")
+    console.print(f"  ARN: {result['Arn']}\n")
 
 @app.command()
 def create_account(
@@ -150,8 +153,21 @@ def list_accounts():
     """List all accounts in the organization"""
     org_helper = OrganizationHelper("us-east-1")
     accounts = org_helper.list_accounts()
+    
+    # Print header
+    console.print("\n[bold]AWS Organization Accounts[/bold]\n")
+    
+    # Print accounts in a table format
+    from rich.table import Table
+    table = Table(show_header=True)
+    table.add_column("Account Name", style="cyan")
+    table.add_column("Account ID", style="green")
+    
     for account in accounts:
-        typer.echo(f"Account: {account['Name']} ({account['Id']})")
+        table.add_row(account['Name'], account['Id'])
+    
+    console.print(table)
+    console.print()
 
 @app.command()
 def delete_stack(
@@ -178,7 +194,9 @@ def delete_account(
     try:
         org_helper = OrganizationHelper(region)
         result = org_helper.delete_account(account_id)
-        typer.echo(f"Account deletion initiated: {result}")
+        console.print(f"\n[yellow]Account deletion initiated[/yellow]")
+        console.print(f"Account ID: {account_id}")
+        console.print("[yellow]Note: Account deletion process may take up to 90 days to complete[/yellow]\n")
     except Exception as e:
         logger.error(f"Failed to delete account: {str(e)}")
         raise typer.Exit(1)
@@ -192,7 +210,7 @@ def delete_ou(
     try:
         org_helper = OrganizationHelper(region)
         result = org_helper.delete_organizational_unit(ou_id)
-        typer.echo(f"OU deleted: {result}")
+        console.print(f"\n[green]Successfully deleted OU:[/green] {ou_id}\n")
     except Exception as e:
         logger.error(f"Failed to delete OU: {str(e)}")
         raise typer.Exit(1)
